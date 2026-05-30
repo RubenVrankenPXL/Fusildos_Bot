@@ -1,26 +1,26 @@
 import sys
 import types
-# AUDIOOP FIX
-if 'audioop' not in sys.modules:
-    sys.modules['audioop'] = types.ModuleType('audioop')
-
 import asyncio
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime, timezone
+import random
 import json
 import os
 from threading import Thread
 from flask import Flask
+
+# FIX VOOR PYTHON 3.14
+if 'audioop' not in sys.modules:
+    sys.modules['audioop'] = types.ModuleType('audioop')
 
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is online!"
 Thread(target=lambda: app.run(host='0.0.0.0', port=10000)).start()
 
-# --- INSTEL ---
-CHANNEL_ID = 1510031024799875233 # Waar de planning komt
-GEHEUGEN_ID = 1234567890123456 # KANAAL VOOR SCORES (PAS DIT AAN!)
+CHANNEL_ID = 1510031024799875233
+GEHEUGEN_ID = 1510081681346920458 # Pas dit aan naar je score-kanaal ID
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -28,20 +28,16 @@ intents.reactions = True
 intents.members = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- SCORES LOGICA ---
 async def update_score(user_id, change):
     channel = bot.get_channel(GEHEUGEN_ID)
     if not channel: return
-    
     scores = {}
     async for m in channel.history(limit=1):
         if m.author == bot.user:
             try: scores = json.loads(m.content)
             except: pass
             await m.delete()
-    
-    uid = str(user_id)
-    scores[uid] = scores.get(uid, 0) + change
+    scores[str(user_id)] = scores.get(str(user_id), 0) + change
     await channel.send(json.dumps(scores))
 
 @bot.event
@@ -71,11 +67,19 @@ async def check_tijd():
             await asyncio.sleep(61)
 
 @bot.command()
+async def testplan(ctx):
+    m = await ctx.send(f"📅 **Planning voor vandaag!**\n🟢 = Aanwezig\n🔴 = Afwezig")
+    await m.add_reaction("🟢")
+    await m.add_reaction("🔴")
+
+@bot.command()
 async def scores(ctx):
     channel = bot.get_channel(GEHEUGEN_ID)
     async for m in channel.history(limit=1):
-        s = json.loads(m.content)
-        res = "\n".join([f"<@{uid}>: {sc}x" for uid, sc in s.items()])
-        await ctx.send(f"🏆 **Totaal aanwezig:**\n{res}")
+        try:
+            s = json.loads(m.content)
+            res = "\n".join([f"<@{uid}>: {sc}x" for uid, sc in s.items()])
+            await ctx.send(f"🏆 **Totaal aanwezig:**\n{res}")
+        except: await ctx.send("Geen scores gevonden.")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
