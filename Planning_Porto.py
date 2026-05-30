@@ -32,7 +32,7 @@ def keep_alive():
 
 # --- INSTELLINGEN KANALEN ---
 CHANNEL_ID = 1510031024799875233       # Je normale planningskanaal
-GEHEUGEN_KANAAL_ID = 1510069641974911056  # ⚠️ VERVANG DIT door het ID van een nieuw geheim kanaal!
+GEHEUGEN_KANAAL_ID = 1510069641974911056  # ⚠️ VERVANG DIT door het ID van je geheime Discord-kanaal!
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -44,7 +44,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def laad_scores():
     channel = bot.get_channel(GEHEUGEN_KANAAL_ID)
     if channel:
-        # Zoek naar het allerlaatste bericht van de bot in dit kanaal
         async for message in channel.history(limit=5):
             if message.author == bot.user and message.content.startswith("```json"):
                 try:
@@ -57,17 +56,15 @@ async def laad_scores():
 async def sla_scores_op(scores):
     channel = bot.get_channel(GEHEUGEN_KANAAL_ID)
     if channel:
-        # Wis oude geheugenberichten om het kanaal schoon te houden
         async for message in channel.history(limit=10):
             if message.author == bot.user:
                 await message.delete()
-        # Stuur het nieuwe geheugen als bericht
         json_tekst = json.dumps(scores, indent=4)
         await channel.send(f"```json\n{json_tekst}\n```")
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} is online en gebruikt kanaal-geheugen!')
+    print(f'{bot.user.name} is online en gebruikt !aanwezigheden!')
     if not dagelijks_bericht.is_running():
         dagelijks_bericht.start()
 
@@ -118,8 +115,9 @@ async def testplan(ctx):
     await bericht.add_reaction("🟢")
     await bericht.add_reaction("🔴")
 
+# --- GEWIJZIGD COMMANDO VAN !leaderboard NAAR !aanwezigheden ---
 @bot.command()
-async def leaderboard(ctx, maand_nummer: str = None):
+async def aanwezigheden(ctx, maand_nummer: str = None):
     scores = await laad_scores()
     nu = datetime.now()
     
@@ -136,11 +134,11 @@ async def leaderboard(ctx, maand_nummer: str = None):
                 await ctx.send("⚠️ **Fout:** Ongeldig maandnummer. Gebruik bijvoorbeeld `05` voor mei.")
                 return
         else:
-            await ctx.send("❌ **Oeps!** Gebruik: `!leaderboard` of `!leaderboard 05`")
+            await ctx.send("❌ **Oeps!** Gebruik: `!aanwezigheden` of `!aanwezigheden 05`")
             return
 
     if doel_maand not in scores or not scores[doel_maand]:
-        await ctx.send(f"🏆 **Leaderboard voor {maand_naam} is nog leeg!**")
+        await ctx.send(f"🏆 **Er zijn nog geen aanwezigheden bijgehouden voor {maand_naam}!**")
         return
 
     maand_scores = scores[doel_maand]
@@ -165,7 +163,7 @@ async def leaderboard(ctx, maand_nummer: str = None):
         leaderboard_tekst += f"{medaille} {naam} — {score}x aanwezig\n"
 
     embed = discord.Embed(
-        title=f"🏆 Aanwezigheid Leaderboard ({maand_naam})",
+        title=f"🏆 Aanwezigheid Overzicht ({maand_naam})",
         description=leaderboard_tekst,
         color=discord.Color.gold()
     )
@@ -175,9 +173,8 @@ async def leaderboard(ctx, maand_nummer: str = None):
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def resetleaderboard(ctx):
-    """Wist alle scores onmiddellijk (Alleen voor Admins)"""
     await sla_scores_op({})
-    await ctx.send("🏆 **Het leaderboard is succesvol gereset naar 0!**")
+    await ctx.send("🏆 **Alle aanwezigheden zijn succesvol gereset naar 0!**")
 
 keep_alive()
 TOKEN = os.getenv("DISCORD_TOKEN")
