@@ -107,7 +107,7 @@ async def on_raw_reaction_remove(payload):
                 
             await sla_scores_op(scores)
 
-@tasks.loop(time=time(hour=9, minute=0, tzinfo=timezone.utc))
+@tasks.loop(time=time(hour=10, minute=0, tzinfo=timezone.utc))
 async def dagelijks_bericht():
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
