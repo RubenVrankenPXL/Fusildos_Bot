@@ -1,5 +1,12 @@
 import sys
 import types
+
+# --- DEZE FIX MOET ALTIJD HELEMAAL BOVENAAN STAAN ---
+if 'audioop' not in sys.modules:
+    dummy_audioop = types.ModuleType('audioop')
+    sys.modules['audioop'] = dummy_audioop
+
+# --- PAS NA DE FIX MOGEN ANDERE BIBLIOTHEKEN WORDEN GELADEN ---
 import asyncio
 import discord
 from discord.ext import commands, tasks
@@ -10,17 +17,13 @@ import os
 from threading import Thread
 from flask import Flask
 
-# FIX VOOR PYTHON 3.14
-if 'audioop' not in sys.modules:
-    sys.modules['audioop'] = types.ModuleType('audioop')
-
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is online!"
 Thread(target=lambda: app.run(host='0.0.0.0', port=10000)).start()
 
 CHANNEL_ID = 1510031024799875233
-GEHEUGEN_ID = 1510081681346920458 # Pas dit aan naar je score-kanaal ID
+GEHEUGEN_ID = 1510081681346920458
 
 intents = discord.Intents.default()
 intents.message_content = True
