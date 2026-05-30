@@ -71,5 +71,24 @@ async def testplan(ctx):
 async def clear(ctx, amount: int = 10):
     await ctx.message.delete()
     await ctx.channel.purge(limit=amount)
+    
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+# --- LOGICA: BIJHOUDEN VAN AAN/AFMELDINGEN ---
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.user_id == bot.user.id: return
+    # Logica voor Aanwezig (🟢) of Afwezig (🔴)
+    if str(payload.emoji) in ["🟢", "🔴"]:
+        status = "Aanwezig" if str(payload.emoji) == "🟢" else "Afwezig"
+        print(f"DEBUG: {payload.member.display_name} heeft zich gemeld als {status}")
+        # Hier zou je eventueel de data kunnen wegschrijven naar een bestand of database
+
+@bot.event
+async def on_raw_reaction_remove(payload):
+    if payload.user_id == bot.user.id: return
+    if str(payload.emoji) in ["🟢", "🔴"]:
+        print(f"DEBUG: {payload.member.display_name} heeft hun reactie verwijderd.")
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bot.run(os.getenv("DISCORD_TOKEN"))
