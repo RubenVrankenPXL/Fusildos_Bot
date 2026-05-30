@@ -4,6 +4,25 @@ from datetime import datetime, time, timezone
 import random
 import json
 import os
+from threading import Thread
+from flask import Flask
+
+# --- MINI WEB SERVER VOOR RENDER ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is online!"
+
+def run_webserver():
+    # Render geeft automatisch een 'PORT' mee via de instellingen
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run_webserver)
+    t.start()
+# ----------------------------------
 
 CHANNEL_ID = 1510031024799875233 
 SCORES_FILE = "maand_leaderboard.json"
@@ -27,7 +46,8 @@ def sla_scores_op(scores):
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} is online en klaar voor de planning én het scorebord!')
-    dagelijks_bericht.start()
+    if not dagelijks_bericht.is_running():
+        dagelijks_bericht.start()
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -115,19 +135,4 @@ async def leaderboard(ctx, maand_nummer: str = None):
 
         naam = user.name if user else f"Onbekend ({user_id})"
         
-        if i == 1: medaille = "🥇"
-        elif i == 2: medaille = "🥈"
-        elif i == 3: medaille = "🥉"
-        else: medaille = f"**#{i}**"
-        
-        leaderboard_tekst += f"{medaille} {naam} — {score}x aanwezig\n"
-
-    embed = discord.Embed(
-        title=f"🏆 Aanwezigheid Leaderboard ({maand_naam})",
-        description=leaderboard_tekst,
-        color=discord.Color.gold()
-    )
-    await ctx.send(embed=embed)
-
-TOKEN = os.getenv("DISCORD_TOKEN")
-bot.run(TOKEN)
+        if i == 1: medaille
