@@ -1,3 +1,13 @@
+import sys
+import types
+
+# --- FIX VOOR PYTHON 3.14 (AUDIOOP ERROR) ---
+# Fop discord.py door een lege audioop-module aan te maken voordat discord wordt geladen
+if 'audioop' not in sys.modules:
+    dummy_audioop = types.ModuleType('audioop')
+    sys.modules['audioop'] = dummy_audioop
+# ---------------------------------------------
+
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime, time, timezone
@@ -135,4 +145,23 @@ async def leaderboard(ctx, maand_nummer: str = None):
 
         naam = user.name if user else f"Onbekend ({user_id})"
         
-        if i == 1: medaille
+        if i == 1: medaille = "🥇"
+        elif i == 2: medaille = "🥈"
+        elif i == 3: medaille = "🥉"
+        else: medaille = f"**#{i}**"
+        
+        leaderboard_tekst += f"{medaille} {naam} — {score}x aanwezig\n"
+
+    embed = discord.Embed(
+        title=f"🏆 Aanwezigheid Leaderboard ({maand_naam})",
+        description=leaderboard_tekst,
+        color=discord.Color.gold()
+    )
+    await ctx.send(embed=embed)
+
+# Start de onzichtbare webserver voor Render zodat hij gratis 24/7 online blijft
+keep_alive()
+
+# Start de Discord bot veilig via de Environment Variable op Render
+TOKEN = os.getenv("DISCORD_TOKEN")
+bot.run(TOKEN)
