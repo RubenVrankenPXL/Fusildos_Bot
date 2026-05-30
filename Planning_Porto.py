@@ -2,7 +2,6 @@ import sys
 import types
 
 # --- FIX VOOR PYTHON 3.14 (AUDIOOP ERROR) ---
-# Fop discord.py door een lege audioop-module aan te maken voordat discord wordt geladen
 if 'audioop' not in sys.modules:
     dummy_audioop = types.ModuleType('audioop')
     sys.modules['audioop'] = dummy_audioop
@@ -17,7 +16,6 @@ import os
 from threading import Thread
 from flask import Flask
 
-# --- MINI WEB SERVER VOOR RENDER ---
 app = Flask('')
 
 @app.route('/')
@@ -25,17 +23,16 @@ def home():
     return "Bot is online!"
 
 def run_webserver():
-    # Render geeft automatisch een 'PORT' mee via de instellingen
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run_webserver)
     t.start()
-# ----------------------------------
 
-CHANNEL_ID = 1510031024799875233 
-SCORES_FILE = "maand_leaderboard.json"
+# --- INSTELLINGEN KANALEN ---
+CHANNEL_ID = 1510031024799875233       # Je normale planningskanaal
+GEHEUGEN_KANAAL_ID = 1234567890123456  # ⚠️ VERVANG DIT door het ID van een nieuw geheim kanaal!
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -43,19 +40,34 @@ intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-def laad_scores():
-    if os.path.exists(SCORES_FILE):
-        with open(SCORES_FILE, "r") as f:
-            return json.load(f)
+# --- SLIM KANAAL-GEHEUGEN SYSTEM ---
+async def laad_scores():
+    channel = bot.get_channel(GEHEUGEN_KANAAL_ID)
+    if channel:
+        # Zoek naar het allerlaatste bericht van de bot in dit kanaal
+        async for message in channel.history(limit=5):
+            if message.author == bot.user and message.content.startswith("```json"):
+                try:
+                    schone_json = message.content.replace("```json", "").replace("```", "").strip()
+                    return json.loads(schone_json)
+                except:
+                    pass
     return {}
 
-def sla_scores_op(scores):
-    with open(SCORES_FILE, "w") as f:
-        json.dump(scores, f, indent=4)
+async def sla_scores_op(scores):
+    channel = bot.get_channel(GEHEUGEN_KANAAL_ID)
+    if channel:
+        # Wis oude geheugenberichten om het kanaal schoon te houden
+        async for message in channel.history(limit=10):
+            if message.author == bot.user:
+                await message.delete()
+        # Stuur het nieuwe geheugen als bericht
+        json_tekst = json.dumps(scores, indent=4)
+        await channel.send(f"```json\n{json_tekst}\n```")
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} is online en klaar voor de planning én het scorebord!')
+    print(f'{bot.user.name} is online en gebruikt kanaal-geheugen!')
     if not dagelijks_bericht.is_running():
         dagelijks_bericht.start()
 
@@ -65,7 +77,7 @@ async def on_raw_reaction_add(payload):
         return
 
     if str(payload.emoji) == "🟢":
-        scores = laad_scores()
+        scores = await laad_scores()
         huidige_maand = datetime.now().strftime("%Y-%m")
         
         if huidige_maand not in scores:
@@ -74,7 +86,7 @@ async def on_raw_reaction_add(payload):
         user_id = str(payload.user_id)
         scores[huidige_maand][user_id] = scores[huidige_maand].get(user_id, 0) + 1
         
-        sla_scores_op(scores)
+        await sla_scores_op(scores)
 
 @tasks.loop(time=time(hour=9, minute=0, tzinfo=timezone.utc))
 async def dagelijks_bericht():
@@ -108,7 +120,7 @@ async def testplan(ctx):
 
 @bot.command()
 async def leaderboard(ctx, maand_nummer: str = None):
-    scores = laad_scores()
+    scores = await laad_scores()
     nu = datetime.now()
     
     if maand_nummer is None:
@@ -159,9 +171,14 @@ async def leaderboard(ctx, maand_nummer: str = None):
     )
     await ctx.send(embed=embed)
 
-# Start de onzichtbare webserver voor Render zodat hij gratis 24/7 online blijft
-keep_alive()
+# --- RESET COMMANDO ---
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def resetleaderboard(ctx):
+    """Wist alle scores onmiddellijk (Alleen voor Admins)"""
+    await sla_scores_op({})
+    await ctx.send("🏆 **Het leaderboard is succesvol gereset naar 0!**")
 
-# Start de Discord bot veilig via de Environment Variable op Render
+keep_alive()
 TOKEN = os.getenv("DISCORD_TOKEN")
 bot.run(TOKEN)
