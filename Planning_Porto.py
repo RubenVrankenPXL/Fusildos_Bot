@@ -201,6 +201,18 @@ async def resetleaderboard(ctx):
     await sla_scores_op({})
     await ctx.send("🏆 **Alle aanwezigheden zijn succesvol gereset naar 0!**")
 
+@bot.command()
+@commands.has_permissions(manage_messages=True)
+async def clear(ctx, amount: int = 10):
+    # Verwijder direct het commando-bericht van de gebruiker
+    await ctx.message.delete()
+    
+    # Wis vervolgens de rest van de berichten
+    await ctx.channel.purge(limit=amount)
+    
+    bevestiging = await ctx.send(f"🧹 **{amount} berichten succesvol gewist!**")
+    await bevestiging.delete(delay=3)
+
 keep_alive()
 TOKEN = os.getenv("DISCORD_TOKEN")
 bot.run(TOKEN)
