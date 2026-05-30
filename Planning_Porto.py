@@ -32,7 +32,7 @@ def keep_alive():
 
 # --- INSTELLINGEN KANALEN ---
 CHANNEL_ID = 1510031024799875233       # Je normale planningskanaal
-GEHEUGEN_KANAAL_ID = 1234567890123456  # ⚠️ VERVANG DIT door het ID van een nieuw geheim kanaal!
+GEHEUGEN_KANAAL_ID = 1510069641974911056  # ⚠️ VERVANG DIT door het ID van een nieuw geheim kanaal!
 
 intents = discord.Intents.default()
 intents.message_content = True
