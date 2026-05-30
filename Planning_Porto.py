@@ -93,5 +93,15 @@ async def aanwezigheden(ctx):
             await ctx.send(f"🏆 **Totaal aanwezig:**\n{res}")
         except: await ctx.send("Geen scores gevonden.")
 
+@bot.command()
+@commands.has_permissions(manage_messages=True)
+async def clear(ctx, amount: int = 10):
+    """Verwijdert een opgegeven aantal berichten."""
+    # We voegen 1 toe zodat ook het !clear bericht zelf wordt verwijderd
+    await ctx.channel.purge(limit=amount + 1)
+    
+    # Optioneel: Stuur een bevestiging die na 3 seconden weer verdwijnt
+    msg = await ctx.send(f"✅ {amount} berichten verwijderd.", delete_after=3)
+
 # 9. DEZE REGEL MOET ALS LAATSTE
 bot.run(os.getenv("DISCORD_TOKEN"))
