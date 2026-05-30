@@ -82,8 +82,8 @@ async def testplan(ctx):
     await m.add_reaction("🟢")
     await m.add_reaction("🔴")
 
-@bot.command()
-async def scores(ctx):
+@bot.command(name="aanwezigheden")
+async def aanwezigheden(ctx):
     channel = bot.get_channel(GEHEUGEN_ID)
     if not channel: return
     async for m in channel.history(limit=1):
