@@ -1,5 +1,12 @@
 import sys
 import types
+
+# --- CRUCIALE FIX: MOET BOVENAAN STAAN ---
+if 'audioop' not in sys.modules:
+    dummy_audioop = types.ModuleType('audioop')
+    sys.modules['audioop'] = dummy_audioop
+# ----------------------------------------
+
 import asyncio
 import discord
 from discord.ext import commands, tasks
@@ -10,10 +17,6 @@ import os
 from threading import Thread
 from flask import Flask
 
-# --- FIX ---
-if 'audioop' not in sys.modules:
-    sys.modules['audioop'] = types.ModuleType('audioop')
-
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is online!"
@@ -21,7 +24,7 @@ Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10
 
 # --- CONFIG ---
 CHANNEL_ID = 1510031024799875233
-GEHEUGEN_KANAAL_ID = 1234567890123456 # PAS AAN
+GEHEUGEN_KANAAL_ID = 1510081681346920458  # ⚠️ PAS DIT AAN!
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -29,7 +32,7 @@ intents.reactions = True
 intents.members = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- LOGICA ---
+# --- FUNCTIES ---
 async def laad_scores():
     channel = bot.get_channel(GEHEUGEN_KANAAL_ID)
     if not channel: return {}
@@ -48,7 +51,6 @@ async def sla_scores_op(scores):
 @bot.event
 async def on_ready():
     print(f'--- {bot.user.name} is online! ---')
-    if not check_tijd.is_running(): check_tijd.start()
 
 @tasks.loop(minutes=1)
 async def check_tijd():
@@ -67,20 +69,15 @@ async def check_tijd():
             m = await channel.send(embed=embed)
             await m.add_reaction("🟢")
             await m.add_reaction("🔴")
-            await asyncio.sleep(61) # Zorgt dat hij niet dubbel stuurt
+            await asyncio.sleep(61)
+
+check_tijd.start()
 
 # --- COMMANDO'S ---
 @bot.command()
 async def testplan(ctx):
     r = random.randint(69, 999)
-    embed = discord.Embed(
-        title="📅 Planning voor Vandaag!",
-        description=f"Wie is er aanwezig? Reageer met de emoji's hieronder!\n\n"
-                    f"📻 **Porto-kanaal van de dag:** Kanaal {r}\n\n"
-                    f"🟢 = Aanwezig\n🔴 = Afwezig",
-        color=discord.Color.blue()
-    )
-    m = await ctx.send(embed=embed)
+    m = await ctx.send(embed=discord.Embed(title="📅 Planning voor Vandaag!", description=f"Wie is er aanwezig? Reageer met de emoji's hieronder!\n\n📻 **Porto-kanaal van de dag:** Kanaal {r}\n\n🟢 = Aanwezig\n🔴 = Afwezig", color=discord.Color.blue()))
     await m.add_reaction("🟢")
     await m.add_reaction("🔴")
 
@@ -88,12 +85,12 @@ async def testplan(ctx):
 async def afwezigen(ctx):
     async for m in ctx.channel.history(limit=5):
         if m.author == bot.user and any(str(r.emoji) == "🔴" for r in m.reactions):
-            afwezigen_lijst = []
+            afwez = []
             for reaction in m.reactions:
                 if str(reaction.emoji) == "🔴":
-                    async for user in reaction.users():
-                        if user != bot.user: afwezigen_lijst.append(user.display_name)
-            await ctx.send(f"❌ **Afwezigen:** {', '.join(afwezigen_lijst) if afwezigen_lijst else 'Niemand is afwezig!'}")
+                    async for u in reaction.users():
+                        if u != bot.user: afwez.append(u.display_name)
+            await ctx.send(f"❌ **Afwezigen:** {', '.join(afwez) if afwez else 'Iedereen is aanwezig!'}")
             return
     await ctx.send("Geen planning gevonden.")
 
