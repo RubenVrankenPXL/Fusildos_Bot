@@ -213,6 +213,17 @@ async def clear(ctx, amount: int = 10):
     bevestiging = await ctx.send(f"🧹 **{amount} berichten succesvol gewist!**")
     await bevestiging.delete(delay=3)
 
+@bot.event
+async def on_ready():
+    print(f'{bot.user.name} is online!')
+    
+    # Check of de taak al loopt, zo nee, start hem
+    if not dagelijks_bericht.is_running():
+        dagelijks_bericht.start()
+        print("Wekker is succesvol aangezet!")
+    else:
+        print("Wekker liep al.")
+
 keep_alive()
 TOKEN = os.getenv("DISCORD_TOKEN")
 bot.run(TOKEN)
