@@ -71,8 +71,7 @@ async def testplan(ctx):
 async def clear(ctx, amount: int = 10):
     await ctx.message.delete()
     await ctx.channel.purge(limit=amount)
-    
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 # --- LOGICA: BIJHOUDEN VAN AAN/AFMELDINGEN ---
 @bot.event
@@ -90,5 +89,4 @@ async def on_raw_reaction_remove(payload):
     if str(payload.emoji) in ["🟢", "🔴"]:
         print(f"DEBUG: {payload.member.display_name} heeft hun reactie verwijderd.")
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 bot.run(os.getenv("DISCORD_TOKEN"))
