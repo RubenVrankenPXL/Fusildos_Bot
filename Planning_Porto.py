@@ -115,7 +115,7 @@ async def testplan(ctx):
     await bericht.add_reaction("🟢")
     await bericht.add_reaction("🔴")
 
-# --- GEWIJZIGD COMMANDO VAN !leaderboard NAAR !aanwezigheden ---
+# --- GEWIJZIGD COMMANDO VOOR MOOIERE NAMEN ---
 @bot.command()
 async def aanwezigheden(ctx, maand_nummer: str = None):
     scores = await laad_scores()
@@ -146,21 +146,27 @@ async def aanwezigheden(ctx, maand_nummer: str = None):
     
     leaderboard_tekst = ""
     for i, (user_id, score) in enumerate(gesorteerde_scores[:10], start=1):
-        user = bot.get_user(int(user_id))
-        if user is None:
+        # Zoek de gebruiker eerst binnen de server om de juiste naam/bijnaam te krijgen
+        member = ctx.guild.get_member(int(user_id))
+        if member is None:
             try:
-                user = await bot.fetch_user(int(user_id))
-            except discord.NotFound:
-                user = None
+                member = await ctx.guild.fetch_member(int(user_id))
+            except:
+                member = None
 
-        naam = user.name if user else f"Onbekend ({user_id})"
+        if member:
+            # Pakt zijn serverbijnaam (Bram) of anders zijn weergavenaam
+            naam = member.display_name
+        else:
+            # Als de persoon de server heeft verlaten
+            naam = f"Ex-lid ({user_id})"
         
         if i == 1: medaille = "🥇"
         elif i == 2: medaille = "🥈"
         elif i == 3: medaille = "🥉"
         else: medaille = f"**#{i}**"
         
-        leaderboard_tekst += f"{medaille} {naam} — {score}x aanwezig\n"
+        leaderboard_tekst += f"{medaille} **{naam}** — {score}x aanwezig\n"
 
     embed = discord.Embed(
         title=f"🏆 Aanwezigheid Overzicht ({maand_naam})",
