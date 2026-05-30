@@ -1,11 +1,6 @@
 import sys
 import types
-
-# --- FIX VOOR PYTHON 3.14 (AUDIOOP ERROR) ---
-if 'audioop' not in sys.modules:
-    dummy_audioop = types.ModuleType('audioop')
-    sys.modules['audioop'] = dummy_audioop
-
+import asyncio
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime, time, timezone
@@ -15,19 +10,15 @@ import os
 from threading import Thread
 from flask import Flask
 
+# --- FIX VOOR PYTHON 3.14 (AUDIOOP ERROR) ---
+if 'audioop' not in sys.modules:
+    dummy_audioop = types.ModuleType('audioop')
+    sys.modules['audioop'] = dummy_audioop
+
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "Bot is online!"
-
-def run_webserver():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run_webserver)
-    t.start()
+def home(): return "Bot is online!"
+Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))).start()
 
 # --- INSTELLINGEN ---
 CHANNEL_ID = 1510031024799875233
@@ -37,32 +28,28 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.reactions = True
 intents.members = True 
-
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# --- FUNCTIES ---
 async def laad_scores():
     channel = bot.get_channel(GEHEUGEN_KANAAL_ID)
     if channel:
-        async for message in channel.history(limit=5):
-            if message.author == bot.user and message.content.startswith("```json"):
-                try:
-                    return json.loads(message.content.replace("```json", "").replace("```", "").strip())
-                except: pass
+        async for m in channel.history(limit=5):
+            if m.author == bot.user and m.content.startswith("```json"):
+                return json.loads(m.content.replace("```json", "").replace("```", "").strip())
     return {}
 
 async def sla_scores_op(scores):
     channel = bot.get_channel(GEHEUGEN_KANAAL_ID)
     if channel:
-        async for message in channel.history(limit=10):
-            if message.author == bot.user: await message.delete()
+        async for m in channel.history(limit=10):
+            if m.author == bot.user: await m.delete()
         await channel.send(f"```json\n{json.dumps(scores, indent=4)}\n```")
 
 @bot.event
 async def on_ready():
     print(f'--- {bot.user.name} is verbonden! ---')
-    if not dagelijks_bericht.is_running():
-        dagelijks_bericht.start()
-        print("STATUS: Wekker gestart!")
+    if not check_tijd.is_running(): check_tijd.start()
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -84,20 +71,33 @@ async def on_raw_reaction_remove(payload):
         scores[maand][uid] = max(0, scores[maand][uid] - 1)
         await sla_scores_op(scores)
 
-@tasks.loop(time=time(hour=10, minute=0, tzinfo=timezone.utc))
-async def dagelijks_bericht():
-    channel = bot.get_channel(CHANNEL_ID)
-    if channel:
-        r = random.randint(69, 999)
-        embed = discord.Embed(title="📅 Planning!", description=f"Kanaal: {r}\n🟢 = Aanwezig", color=discord.Color.blue())
-        m = await channel.send(embed=embed)
-        await m.add_reaction("🟢")
+# --- WEKKER: PLANNING VANDAAG ---
+@tasks.loop(minutes=1)
+async def check_tijd():
+    nu = datetime.now(timezone.utc)
+    if nu.hour == 10 and nu.minute == 0:
+        channel = bot.get_channel(CHANNEL_ID)
+        if channel:
+            r = random.randint(69, 999)
+            embed = discord.Embed(
+                title="📅 Planning voor Vandaag!", 
+                description=f"Wie is er aanwezig? Reageer met de emoji's hieronder!\n\n"
+                            f"📻 **Porto-kanaal van de dag:** Kanaal {r}\n\n"
+                            f"🟢 = Aanwezig\n🔴 = Afwezig", 
+                color=discord.Color.blue()
+            )
+            m = await channel.send(embed=embed)
+            await m.add_reaction("🟢")
+            await m.add_reaction("🔴")
+            await asyncio.sleep(60)
 
+# --- COMMANDO'S ---
 @bot.command()
 async def testplan(ctx):
     r = random.randint(69, 999)
-    m = await ctx.send(embed=discord.Embed(title="📅 Planning!", description=f"Kanaal: {r}\n🟢 = Aanwezig", color=discord.Color.blue()))
+    m = await ctx.send(embed=discord.Embed(title="📅 Planning voor Vandaag!", description=f"Wie is er aanwezig? Reageer met de emoji's hieronder!\n\n📻 **Porto-kanaal van de dag:** Kanaal {r}\n\n🟢 = Aanwezig\n🔴 = Afwezig", color=discord.Color.blue()))
     await m.add_reaction("🟢")
+    await m.add_reaction("🔴")
 
 @bot.command()
 async def aanwezigheden(ctx, m_nr: str = None):
@@ -105,12 +105,19 @@ async def aanwezigheden(ctx, m_nr: str = None):
     doel = f"{datetime.now().year}-{m_nr}" if m_nr else datetime.now().strftime("%Y-%m")
     if doel not in scores: await ctx.send("Leeg!"); return
     res = sorted(scores[doel].items(), key=lambda x: x[1], reverse=True)
-    tekst = ""
-    for i, (uid, sc) in enumerate(res[:10], 1):
-        mem = ctx.guild.get_member(int(uid)) or await ctx.guild.fetch_member(int(uid))
-        naam = mem.display_name if mem else "Onbekend"
-        tekst += f"**#{i}** {naam} — {sc}x aanwezig\n"
-    await ctx.send(embed=discord.Embed(title="🏆 Overzicht", description=tekst, color=discord.Color.gold()))
+    tekst = "".join([f"**#{i}** {(ctx.guild.get_member(int(uid)) or await ctx.guild.fetch_member(int(uid))).display_name} — {sc}x aanwezig\n" for i, (uid, sc) in enumerate(res[:10], 1)])
+    await ctx.send(embed=discord.Embed(title="🏆 Aanwezigheid Overzicht", description=tekst, color=discord.Color.gold()))
+
+@bot.command()
+async def afwezigen(ctx):
+    async for m in ctx.channel.history(limit=5):
+        if any(r.emoji == "🔴" for r in m.reactions):
+            afwez = [ (await reaction.users().flatten()) for reaction in m.reactions if str(reaction.emoji) == "🔴" ]
+            # Vereenvoudigd:
+            users = [u.display_name async for u in next((r.users() for r in m.reactions if str(r.emoji) == "🔴"), []) if u != bot.user]
+            await ctx.send(f"❌ **Afwezigen:** {', '.join(users) if users else 'Iedereen is aanwezig!'}")
+            return
+    await ctx.send("Geen planning gevonden.")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -126,5 +133,4 @@ async def clear(ctx, amount: int = 10):
     msg = await ctx.send(f"🧹 {amount} gewist!")
     await msg.delete(delay=3)
 
-keep_alive()
 bot.run(os.getenv("DISCORD_TOKEN"))
