@@ -37,6 +37,7 @@ GEHEUGEN_KANAAL_ID = 1510081681346920458  # ⚠️ VERVANG DIT door het ID van j
 intents = discord.Intents.default()
 intents.message_content = True
 intents.reactions = True
+intents.members = True # Zorgt ervoor dat we server-bijnamen mogen ophalen
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -64,10 +65,11 @@ async def sla_scores_op(scores):
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} is online en gebruikt !aanwezigheden!')
+    print(f'{bot.user.name} is online en de logica is waterdicht!')
     if not dagelijks_bericht.is_running():
         dagelijks_bericht.start()
 
+# --- REACTIE TOEGEVOEGD (AANMELDEN) ---
 @bot.event
 async def on_raw_reaction_add(payload):
     if payload.user_id == bot.user.id:
@@ -84,6 +86,26 @@ async def on_raw_reaction_add(payload):
         scores[huidige_maand][user_id] = scores[huidige_maand].get(user_id, 0) + 1
         
         await sla_scores_op(scores)
+
+# --- REACTIE WEGGEHAALD (AFMELDEN) ---
+@bot.event
+async def on_raw_reaction_remove(payload):
+    if payload.user_id == bot.user.id:
+        return
+
+    if str(payload.emoji) == "🟢":
+        scores = await laad_scores()
+        huidige_maand = datetime.now().strftime("%Y-%m")
+        user_id = str(payload.user_id)
+        
+        if huidige_maand in scores and user_id in scores[huidige_maand]:
+            scores[huidige_maand][user_id] -= 1
+            
+            # Voorkom dat scores onder de 0 zakken
+            if scores[huidige_maand][user_id] < 0:
+                scores[huidige_maand][user_id] = 0
+                
+            await sla_scores_op(scores)
 
 @tasks.loop(time=time(hour=9, minute=0, tzinfo=timezone.utc))
 async def dagelijks_bericht():
@@ -115,7 +137,7 @@ async def testplan(ctx):
     await bericht.add_reaction("🟢")
     await bericht.add_reaction("🔴")
 
-# --- GEWIJZIGD COMMANDO VOOR MOOIERE NAMEN ---
+# --- OPROEPEN AANWEZIGHEDEN (LEADERBOARD) ---
 @bot.command()
 async def aanwezigheden(ctx, maand_nummer: str = None):
     scores = await laad_scores()
@@ -146,7 +168,6 @@ async def aanwezigheden(ctx, maand_nummer: str = None):
     
     leaderboard_tekst = ""
     for i, (user_id, score) in enumerate(gesorteerde_scores[:10], start=1):
-        # Zoek de gebruiker eerst binnen de server om de juiste naam/bijnaam te krijgen
         member = ctx.guild.get_member(int(user_id))
         if member is None:
             try:
@@ -155,10 +176,8 @@ async def aanwezigheden(ctx, maand_nummer: str = None):
                 member = None
 
         if member:
-            # Pakt zijn serverbijnaam (Bram) of anders zijn weergavenaam
             naam = member.display_name
         else:
-            # Als de persoon de server heeft verlaten
             naam = f"Ex-lid ({user_id})"
         
         if i == 1: medaille = "🥇"
@@ -175,7 +194,7 @@ async def aanwezigheden(ctx, maand_nummer: str = None):
     )
     await ctx.send(embed=embed)
 
-# --- RESET COMMANDO ---
+# --- RESET COMMANDO (Alleen voor Admins) ---
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def resetleaderboard(ctx):
